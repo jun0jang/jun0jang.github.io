@@ -1,14 +1,14 @@
 ---
 layout: post
 title: "포트는 프로세스를 특정하기 위한 것이 아니다"
-description: "파이썬 Gunicorn WAS 프로세스들이 같은 프로세스를 사용할 수 있는 이유"
+description: "파이썬 Gunicorn WAS 프로세스들이 같은 포트를 사용할 수 있는 이유"
 date: 2019-10-07
 tags: [network, gunicorn]
 comments: true
 share: true
 ---
 
-### 목차 
+<h3 id="overview" style="border-bottom: 1px solid #eee;">목차</h3>
 
 - [개요](#overview)
 - [SO_REUSEADDR, SO_REUSEPORT](#SO_REUSEADDR-SO_REUSEPORT)
@@ -18,8 +18,7 @@ share: true
 - [결론](#conclusion)
 - [참조](#reference)
 
-<h3 id="overview">개요</h3>
-<hr/>
+<h3 id="overview" style="border-bottom: 1px solid #eee;">개요</h3>
 
 파이썬 웹 개발자라면 당연히 알고 있을 법한 내용이 두 가지 있습니다.    
 
@@ -30,8 +29,7 @@ share: true
 파이썬 WAS 는 병렬과 동시성 처리를 위해 멀티 프로세스를 사용하는데 이 프로세스들이 하나의 포트를 사용하기 때문입니다.  
 어떻게 파이썬 WAS 프로세스들이 같은 포트를 사용하는지 Gunicorn 기준으로 살펴보겠습니다.  
 
-<h3 id="SO_REUSEADDR-SO_REUSEPORT">SO_REUSEADDR, SO_REUSEPORT</h3>
-<hr/>
+<h3 id="SO_REUSEADDR-SO_REUSEPORT" style="border-bottom: 1px solid #eee;">SO_REUSEADDR, SO_REUSEPORT</h3>
 
 구글에 멀티 프로세스가 같은 포트를 사용하는 법을 검색하면 가장 먼저 나오는 게 소켓 옵션 중 하나인 SO_REUSEADDR 과 SO_REUSEPORT 입니다.  
 이 두 옵션 중 하나를 사용하면 다른 프로세스가 같은 포트틀 사용할 수 있습니다.  
@@ -65,8 +63,7 @@ client = server_socket.accept()
 그럼 파이썬 WAS 라이브러리의 문서에는 Linux 3.9 이상부터 지원된다는 명세가 있어야 하는데 적어도 Gunicorn 문서에는 그런 내용이 없습니다. 
 뭔가 다른 방법을 사용하는 것 같습니다.  
 
-<h3 id="socket-type">연결용 소켓과 통신용 소켓</h3>
-<hr/>
+<h3 id="socket-type" style="border-bottom: 1px solid #eee;">연결용 소켓과 통신용 소켓</h3>
 
 멀티 쓰레드에서 어떻게 요청을 동시에 처리하는지 살펴보면 파이썬 WAS 에서 멀티 프로세스가 하나의 포트를 사용하는 방법을 이해하는 데 도움이 됩니다.  
 
@@ -83,16 +80,14 @@ Gunicorn 에서도 같은 연결용 소켓을 공유해서 멀티 프로세스�
 Gunicorn 은 어떻게 같은 연결용 소켓을 가질까요?  
 IPC?, 공유 메모리?, PIPE? 같이 한 번 알아봅시다.  
 
-<h3 id="socket-is-file">소켓은 파일이다</h3>
-<hr/>
+<h3 id="socket-is-file" style="border-bottom: 1px solid #eee;">소켓은 파일이다</h3>
 
 소켓은 파일입니다. 파일이 어떻게 관리되는지 알면 어떻게 같은 연결용 소켓을 공유하는지 알 수 있습니다.  
 새로운 파일을 오픈하면 디스크립터 테이블에 행이 추가되고 이 행의 인덱스를 반환받습니다.  
 그리고 디스크립터 테이블은 OS 레벨에서 전역으로 관리되는 파일 테이블을 가리킵니다.  
 그렇습니다. 디스크립터 테이블은 프로세스 각각에 할당되지만 디스크립터 테이블이 가리키는 파일 테이블이 전역이기 때문에 다른 프로세스에서도 같은 파일 테이블을 가리킬 수 있습니다.  
 
-<h3 id="gunicorn">Gunicorn</h3>
-<hr/>
+<h3 id="gunicorn" style="border-bottom: 1px solid #eee;">Gunicorn</h3>
 
 Gunicorn 은 멀티 프로세싱을 위해 os.fork 를 사용합니다.  
 이 명령은 실행 중인 프로세스와 동일한 내용의 프로세스를 하나 더 만드는 명령입니다.  
@@ -101,15 +96,13 @@ Gunicorn 은 멀티 프로세싱을 위해 os.fork 를 사용합니다.
 하지만 이 디스크립터 테이블이 가리키는 파일 테이블은 동일합니다.  
 그래서 멀티 프로세스에서도 멀티 쓰레드처럼 같은 연결용 소켓을 가질 수 있습니다.  
 
-<h3 id="conclusion">결론</h3>
-<hr/>
+<h3 id="conclusion" style="border-bottom: 1px solid #eee;">결론</h3>
 
 그래서 저는 포트가 프로세스를 식별하기 위한 용도라는 설명은 조금 틀렸다고 생각합니다.  
 포트는 엄밀히 말해 소켓을 식별하기 위한 용도입니다. 그리고 이 소켓은 다른 프로세스에서도 사용할 수 있죠.  
 처음에 Gunicorn 코드를 볼 때는 같은 포트를 사용하기 위한 별다른 코딩이 없는 것 같아서 띠용 했는데 파일이 저렇게 관리된다는 점이 흥미로웠습니다.  
 
-<h3 id="reference">참조</h3>
-<hr/>
+<h3 id="reference" style="border-bottom: 1px solid #eee;">참조</h3>
 
 - https://stackoverflow.com/questions/14388706/how-do-so-reuseaddr-and-so-reuseport-differ
 - https://www.usna.edu/Users/cs/aviv/classes/ic221/s16/lec/21/lec.html
